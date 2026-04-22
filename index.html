@@ -147,6 +147,16 @@ main { padding: 24px; max-width: 1600px; margin: 0 auto; }
     <div class="logo">🎈 <span class="brand">たかの友梨</span> Banner Preview</div>
     <div class="stats" id="stats"></div>
   </div>
+  <!-- Round tabs -->
+  <div class="controls" style="margin-top:10px;border-bottom:1px solid var(--border);padding-bottom:10px;">
+    <div class="filter-tabs" id="roundTabs" style="flex-wrap:wrap;gap:6px;">
+      <button data-round="" class="active">📊 全て</button>
+      <button data-round="round1">Round 1 (初稿16枚)</button>
+      <button data-round="round2-clean">Round 2 / 純メイン</button>
+      <button data-round="round2-annot-original">Round 2 / 白ストリップ注釈</button>
+      <button data-round="round2-final">⭐ Round 2 Final / 溶込注釈</button>
+    </div>
+  </div>
   <div class="controls">
     <select id="sort">
       <option value="random">🔀 Random</option>
@@ -240,7 +250,7 @@ function showApp(){document.getElementById('gate').style.display='none';document
 if(sessionStorage.getItem('tb_auth')==='ok'){showApp();}
 document.getElementById('pwInput').addEventListener('keydown',e=>{if(e.key==='Enter')tryPw();});
 
-let data=[], filtered=[], ratings={}, currentFilter='all', currentSort='random', currentIdx=-1;
+let data=[], filtered=[], ratings={}, currentFilter='all', currentSort='random', currentIdx=-1, currentRound='';
 
 async function loadData(){
   const r=await fetch('data.json');
@@ -250,11 +260,24 @@ async function loadData(){
     const d=await fetch('default-ratings.json');
     if(d.ok){const defs=await d.json();for(const k in defs){if(!(k in ratings))ratings[k]=defs[k];}}
   }catch(e){}
+  applyHashRound();
   render();
 }
 
+function applyHashRound(){
+  // URL末尾 #round2-final などから現在のラウンドを決める
+  const h=(location.hash||'').replace(/^#/,'');
+  currentRound = h; // '' = 全て
+  document.querySelectorAll('#roundTabs button').forEach(b=>{
+    b.classList.toggle('active', (b.dataset.round||'')===currentRound);
+  });
+}
+window.addEventListener('hashchange', ()=>{applyHashRound(); render();});
+
 function render(){
   let arr=data.slice();
+  // round filter (URL hash base)
+  if(currentRound) arr=arr.filter(d=>d.group===currentRound);
   // filter
   if(currentFilter==='good')arr=arr.filter(d=>ratings[d.id]==='good');
   else if(currentFilter==='bad')arr=arr.filter(d=>ratings[d.id]==='bad');
@@ -334,6 +357,14 @@ function exportGood(){const goods=data.filter(d=>ratings[d.id]==='good');const t
 
 // Filter tabs
 document.getElementById('filters').addEventListener('click',e=>{if(e.target.tagName==='BUTTON'){document.querySelectorAll('#filters button').forEach(b=>b.classList.remove('active'));e.target.classList.add('active');currentFilter=e.target.dataset.filter;render();}});
+// Round tabs (updates URL hash)
+document.getElementById('roundTabs').addEventListener('click',e=>{
+  if(e.target.tagName==='BUTTON'){
+    const r=e.target.dataset.round||'';
+    location.hash = r ? '#'+r : '';
+    if(!r){history.replaceState(null,'',location.pathname+location.search);applyHashRound();render();}
+  }
+});
 // Sort
 document.getElementById('sort').addEventListener('change',e=>{currentSort=e.target.value;render();});
 // Search
